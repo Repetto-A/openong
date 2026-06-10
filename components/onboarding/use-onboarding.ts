@@ -1,56 +1,77 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  CampaignRecommendation,
   ChatAttachment,
   OnboardingSession
 } from '@/lib/onboarding/types';
 
 type Status = 'idle' | 'loading' | 'ready' | 'error';
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+type SessionPayload = {
+  session: OnboardingSession;
+  recommendations?: CampaignRecommendation[];
+};
 
 export type UseOnboarding = ReturnType<typeof useOnboarding>;
 
-/**
- * Client state machine for the onboarding chat.
- * Owns the session, message sending, attachment upload and completion.
- * Resilient: persists the sessionId in localStorage so a refresh resumes.
- */
 export function useOnboarding(subdomain?: string) {
   const [session, setSession] = useState<OnboardingSession | null>(null);
+  const [recommendations, setRecommendations] = useState<
+    CampaignRecommendation[]
+  >([]);
   const [status, setStatus] = useState<Status>('idle');
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const initialized = useRef(false);
+  const storageKey = useMemo(
+    () =>
+      subdomain
+        ? `onboarding:sessionId:${subdomain}`
+        : 'onboarding:sessionId',
+    [subdomain]
+  );
 
-  const storageKey = subdomain
-    ? `onboarding:sessionId:${subdomain}`
-    : 'onboarding:sessionId';
-
-  const loadSession = useCallback(async (id: string): Promise<boolean> => {
-    const res = await fetch(`/api/onboarding/session/${id}`);
-    if (!res.ok) return false;
-    const data = await res.json();
-    setSession(data.session);
-    return true;
+  const markSaved = useCallback((nextSession: OnboardingSession) => {
+    setSession(nextSession);
+    setSaveState('saved');
+    setLastSavedAt(nextSession.updatedAt ?? new Date().toISOString());
   }, []);
 
+  const loadSession = useCallback(
+    async (id: string): Promise<boolean> => {
+      const res = await fetch(`/api/onboarding/session/${id}`);
+      if (!res.ok) return false;
+      const data = (await res.json()) as SessionPayload;
+      markSaved(data.session);
+      setRecommendations(data.recommendations ?? []);
+      return true;
+    },
+    [markSaved]
+  );
+
   const createSession = useCallback(async () => {
+    setSaveState('saving');
     const res = await fetch('/api/onboarding/session', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ subdomain })
     });
     if (!res.ok) throw new Error('No se pudo crear la sesión de onboarding');
-    const data = await res.json();
-    setSession(data.session);
+    const data = (await res.json()) as SessionPayload;
+    markSaved(data.session);
+    setRecommendations([]);
     try {
       localStorage.setItem(storageKey, data.session.id);
     } catch {
       /* ignore storage errors */
     }
-  }, [subdomain, storageKey]);
+  }, [markSaved, storageKey, subdomain]);
 
-  // Bootstrap: resume stored session or create a new one.
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
@@ -67,6 +88,7 @@ export function useOnboarding(subdomain?: string) {
         if (!resumed) await createSession();
         setStatus('ready');
       } catch (e) {
+        setSaveState('error');
         setError(e instanceof Error ? e.message : 'Error desconocido');
         setStatus('error');
       }
@@ -92,9 +114,9 @@ export function useOnboarding(subdomain?: string) {
     async (message: string, attachments: ChatAttachment[] = []) => {
       if (!session) return;
       setSending(true);
+      setSaveState('saving');
       setError(null);
 
-      // Optimistic: show the user's message immediately.
       const optimistic: OnboardingSession = {
         ...session,
         messages: [
@@ -116,44 +138,50 @@ export function useOnboarding(subdomain?: string) {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ sessionId: session.id, message, attachments })
         });
-        const data = await res.json();
+        const data = (await res.json()) as SessionPayload & { error?: string };
         if (!res.ok) throw new Error(data.error ?? 'Error al enviar el mensaje');
-        setSession(data.session);
+        markSaved(data.session);
+        if (data.recommendations) {
+          setRecommendations(data.recommendations);
+        }
       } catch (e) {
+        setSaveState('error');
         setError(e instanceof Error ? e.message : 'Error al enviar');
-        // Roll back the optimistic message.
         setSession(session);
       } finally {
         setSending(false);
       }
     },
-    [session]
+    [markSaved, session]
   );
 
   const complete = useCallback(
     async (force = false) => {
-      if (!session) return;
+      if (!session) return false;
       setError(null);
+      setSaveState('saving');
       try {
         const res = await fetch('/api/onboarding/complete', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ sessionId: session.id, force })
         });
-        const data = await res.json();
+        const data = (await res.json()) as SessionPayload & { error?: string };
         if (!res.ok) {
           throw new Error(
             data.error ?? 'Todavía faltan datos mínimos para finalizar'
           );
         }
-        setSession(data.session);
+        markSaved(data.session);
+        setRecommendations(data.recommendations ?? []);
         return true;
       } catch (e) {
+        setSaveState('error');
         setError(e instanceof Error ? e.message : 'Error al finalizar');
         return false;
       }
     },
-    [session]
+    [markSaved, session]
   );
 
   const reset = useCallback(async () => {
@@ -163,6 +191,9 @@ export function useOnboarding(subdomain?: string) {
       /* ignore */
     }
     setSession(null);
+    setRecommendations([]);
+    setSaveState('idle');
+    setLastSavedAt(null);
     initialized.current = false;
     setStatus('loading');
     await createSession();
@@ -171,7 +202,10 @@ export function useOnboarding(subdomain?: string) {
 
   return {
     session,
+    recommendations,
     status,
+    saveState,
+    lastSavedAt,
     sending,
     error,
     sendMessage,

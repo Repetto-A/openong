@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { auth } from '@clerk/nextjs/server';
+import { logDevAuthDebug } from '@/lib/auth-debug';
 import { OrgChooser } from './org-chooser';
 
 export const metadata: Metadata = {
@@ -10,9 +12,19 @@ export const metadata: Metadata = {
 };
 
 export default async function CreatePage() {
-  const { userId } = await auth();
+  const { userId, orgSlug } = await auth();
+  const requestHeaders = await headers();
+
+  logDevAuthDebug({
+    pathname: '/create',
+    host: requestHeaders.get('host'),
+    userId,
+    orgSlug,
+    reason: userId ? 'create:authenticated' : 'create:missing-user'
+  });
+
   if (!userId) {
-    redirect('/sign-up');
+    redirect('/sign-in?redirect_url=%2Fcreate');
   }
 
   return (

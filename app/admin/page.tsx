@@ -7,6 +7,7 @@ import { getOrgBySlug } from '@/lib/orgs';
 import { getCampaigns } from '@/lib/campaigns';
 import { getOrders } from '@/lib/orders';
 import { getTrafficSeries } from '@/lib/traffic';
+import { getOrgRecommendations } from '@/lib/onboarding/org-store';
 import { protocol, rootDomain } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,10 +43,11 @@ export default async function OngAdminPage() {
     redirect('/onboarding');
   }
 
-  const [campaigns, orders, traffic] = await Promise.all([
+  const [campaigns, orders, traffic, recommendations] = await Promise.all([
     getCampaigns(access.orgId),
     getOrders(access.orgId),
-    getTrafficSeries(access.orgId)
+    getTrafficSeries(access.orgId),
+    getOrgRecommendations(access.orgId)
   ]);
 
   const pendingOrders = orders.filter((o) => o.status === 'por_validar').length;
@@ -110,6 +112,55 @@ export default async function OngAdminPage() {
             status: o.status
           }))}
         />
+
+        {access.canCreateCampaign && recommendations.length > 0 && (
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">
+                Sugeridas para empezar
+              </h2>
+              <p className="text-sm text-gray-500">
+                Nacieron de tu onboarding. Elegí una y completá URL, imágenes y
+                pago.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {recommendations.map((recommendation) => {
+                const meta = TYPE_META[recommendation.type];
+                const Icon = meta.icon;
+                return (
+                  <Card key={recommendation.id} className="h-full">
+                    <CardContent className="flex h-full flex-col gap-4 p-5">
+                      <div className="flex items-start justify-between">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                          {meta.label}
+                        </span>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {recommendation.title}
+                        </h3>
+                        <p className="mt-2 text-sm text-gray-500">
+                          {recommendation.reason}
+                        </p>
+                      </div>
+                      <CreateCampaignDialog
+                        subdomain={access.slug}
+                        initialRecommendation={recommendation}
+                        trigger={
+                          <Button className="w-full">Usar sugerencia</Button>
+                        }
+                      />
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         <h2 className="text-xl font-semibold text-gray-900">Campañas</h2>
 

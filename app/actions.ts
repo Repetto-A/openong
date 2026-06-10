@@ -13,6 +13,12 @@ import {
 } from '@/lib/campaigns';
 import { buildDemoCampaignPrompt } from '@/lib/demo-campaign-prompt';
 import {
+  getOrgProfile,
+  getOrgRecommendations,
+  deleteOrgOnboardingData
+} from '@/lib/onboarding/org-store';
+import { buildCampaignPromptFromProfile } from '@/lib/onboarding/recommendations';
+import {
   getOrders,
   updateOrderStatus,
   paidOrderStatus,
@@ -38,7 +44,8 @@ export async function deleteOrganizationAction(
   await Promise.all([
     redis.del(`org:${orgId}:campaigns`),
     redis.del(`org:${orgId}:orders`),
-    redis.del(`org:${orgId}:traffic:views`)
+    redis.del(`org:${orgId}:traffic:views`),
+    deleteOrgOnboardingData(orgId)
   ]);
   const extra = [
     ...(await redis.keys(`org:${orgId}:page:*`)),
@@ -66,6 +73,7 @@ export async function createCampaignAction(
     prompt: string;
     images?: string[];
     payment?: CampaignPayment;
+    recommendationId?: string;
   }
 ): Promise<CreateCampaignState> {
   const result = await resolveOrgAccess(subdomain);
@@ -77,24 +85,42 @@ export async function createCampaignAction(
   }
 
   const orgId = result.access.orgId;
-  const title = data.title?.trim();
+  let title = data.title?.trim();
+  let type = data.type;
+  let prompt = buildDemoCampaignPrompt({
+    type,
+    title: title ?? '',
+    userPrompt: data.prompt
+  });
+
+  if (data.recommendationId) {
+    const [profile, recommendations] = await Promise.all([
+      getOrgProfile(orgId),
+      getOrgRecommendations(orgId)
+    ]);
+
+    const recommendation = recommendations.find(
+      (item) => item.id === data.recommendationId
+    );
+
+    if (!profile || !recommendation) {
+      return { error: 'No pudimos cargar la sugerencia elegida.' };
+    }
+
+    title = recommendation.title;
+    type = recommendation.type;
+    prompt = buildCampaignPromptFromProfile({ profile, recommendation });
+  }
 
   if (!title) {
     return { error: 'Title is required' };
   }
-
-  const prompt = buildDemoCampaignPrompt({
-    type: data.type,
-    title,
-    userPrompt: data.prompt
-  });
 
   let slug = slugify(data.slug || title);
   if (!slug) {
     return { error: 'Could not generate a valid slug from the title' };
   }
 
-  // Ensure slug is unique within this organization.
   const campaigns = await getCampaigns(orgId);
   if (campaigns.some((c) => c.slug === slug)) {
     let i = 2;
@@ -105,7 +131,7 @@ export async function createCampaignAction(
   await addCampaign(orgId, {
     slug,
     title,
-    type: data.type,
+    type,
     prompt,
     images: data.images?.filter(Boolean) ?? [],
     payment: data.payment,
@@ -113,6 +139,7 @@ export async function createCampaignAction(
     createdAt: Date.now()
   });
 
+  revalidatePath('/admin');
   revalidatePath(`/s/${result.access.slug}`);
 
   return { slug };
@@ -138,11 +165,6 @@ export async function updateOrderStatusAction(
   revalidatePath(`/s/${result.access.slug}`);
 }
 
-/**
- * Approves a `por_validar` order. The destination depends on the campaign type:
- * store orders go to `pago_pendiente_envio`, crowdfunding goes straight to
- * `entregado` (no shipment).
- */
 export async function approveOrderAction(
   subdomain: string,
   orderId: string

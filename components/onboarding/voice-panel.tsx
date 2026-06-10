@@ -14,14 +14,17 @@ import {
   Volume2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { VoiceAvailabilityReason } from '@/lib/onboarding/voice-config';
 
 export function VoicePanel({
   enabled,
   agentId,
+  disabledReason,
   sessionId
 }: {
   enabled: boolean;
   agentId?: string;
+  disabledReason: VoiceAvailabilityReason;
   sessionId: string;
 }) {
   const live = enabled && Boolean(agentId);
@@ -39,10 +42,7 @@ export function VoicePanel({
         </p>
         <div className="mt-3 flex items-start gap-2 rounded-md bg-background p-2 text-xs text-muted-foreground">
           <Info className="mt-0.5 size-3.5 shrink-0" />
-          <span>
-            El agente de voz requiere credenciales de ElevenLabs. Por ahora
-            segui por texto, toda la informacion se guarda igual.
-          </span>
+          <span>{disabledVoiceMessage(disabledReason)}</span>
         </div>
       </div>
     );
@@ -231,4 +231,20 @@ function getLiveLabel({
   }
 
   return 'Llamada lista';
+}
+
+function disabledVoiceMessage(reason: VoiceAvailabilityReason) {
+  switch (reason) {
+    case 'disabled_flag':
+      return 'La entrevista por voz está desactivada en este entorno. Por ahora seguí por texto; toda la información se guarda igual.';
+    case 'missing_agent_id':
+      return 'Falta configurar el agente de ElevenLabs para habilitar la entrevista por voz.';
+    case 'missing_api_key':
+      return 'Falta la API key de ElevenLabs, así que la entrevista por voz no puede iniciarse todavía.';
+    case 'missing_service_token':
+      return 'Falta el token de servicio del agente de voz, así que no podríamos guardar bien la entrevista. Por ahora seguí por texto.';
+    case 'ready':
+    default:
+      return 'El agente de voz requiere configuración adicional. Por ahora seguí por texto; toda la información se guarda igual.';
+  }
 }

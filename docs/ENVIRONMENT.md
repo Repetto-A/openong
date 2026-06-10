@@ -26,6 +26,10 @@ CLERK_SECRET_KEY=
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 
+# Development-only auth diagnostics. Logs minimal auth state on server routes
+# when enabled. It never bypasses Clerk and must not be enabled in production.
+DEV_AUTH_DEBUG=false
+
 # ─────────────────────────────────────────────────────────────
 # Onboarding text agent (OPTIONAL)
 # ─────────────────────────────────────────────────────────────
@@ -67,6 +71,35 @@ NEXT_PUBLIC_ONBOARDING_VOICE_ENABLED=false
 | `NEXT_PUBLIC_ONBOARDING_VOICE_ENABLED` | Voice block shown  | Text-only onboarding (still complete)     |
 
 Nothing in the above is required to run the onboarding by text locally.
+
+## Local Clerk troubleshooting
+
+Use `http://lvh.me:3000` for local auth testing when working with subdomains:
+
+```env
+NEXT_PUBLIC_ROOT_DOMAIN=lvh.me:3000
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+```
+
+If the app loops between auth and `/create`, verify these before changing code:
+
+1. `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` come from the
+   same Clerk instance and environment.
+2. Your system clock is synchronized. Clerk JWTs can fail with
+   `token-not-active-yet` / `nbf` errors when the local clock is behind.
+3. Clear stale cookies for `localhost`, `lvh.me`, and the Clerk domain after
+   changing keys or root domain settings.
+4. Restart `pnpm dev` after changing `.env` values.
+
+For temporary server-side diagnostics in development only, set:
+
+```env
+DEV_AUTH_DEBUG=true
+```
+
+This only logs `pathname`, `host`, `NODE_ENV`, `userId`, `orgSlug`, and a reason
+label. It does not print secrets or tokens and does not bypass authentication.
 
 ## Clerk setup (dashboard)
 

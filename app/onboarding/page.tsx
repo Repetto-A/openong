@@ -6,6 +6,7 @@ import { getOrgBySlug } from '@/lib/orgs';
 import { rootDomain } from '@/lib/utils';
 import { OnboardingExperience } from '@/components/onboarding/onboarding-experience';
 import { AdminHeader } from '@/app/admin-header';
+import { getVoiceAvailability } from '@/lib/onboarding/voice-config';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { orgSlug } = await auth();
@@ -22,20 +23,19 @@ export default async function OngOnboardingPage() {
     redirect('/admin');
   }
 
-  const voiceEnabled =
-    process.env.NEXT_PUBLIC_ONBOARDING_VOICE_ENABLED === 'true';
-  const voiceAgentId =
-    process.env.ELEVENLABS_AGENT_ID ?? process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
+  const voice = getVoiceAvailability();
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white px-4 py-8 dark:from-zinc-950 dark:to-zinc-900">
-      <div className="mx-auto mb-4 w-full max-w-6xl">
+    <main className="min-h-screen bg-[#f6f1e8] px-4 py-6 text-slate-950">
+      <div className="mx-auto mb-4 w-full max-w-7xl">
         <AdminHeader superadmin={access.superadmin} />
       </div>
       <OnboardingExperience
-        voiceEnabled={voiceEnabled}
-        voiceAgentId={voiceAgentId}
+        voiceEnabled={voice.enabled}
+        voiceAgentId={voice.agentId}
+        voiceDisabledReason={voice.reason}
         subdomain={access.slug}
+        adminHref="/admin"
       />
     </main>
   );

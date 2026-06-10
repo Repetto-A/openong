@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { getSession, saveSession } from '@/lib/onboarding/store';
 import { runAgentTurn } from '@/lib/onboarding/agent';
 import type {
@@ -6,14 +7,12 @@ import type {
   OnboardingMessage
 } from '@/lib/onboarding/types';
 
-/**
- * POST /api/onboarding/message
- * Processes one user turn in the text onboarding chat.
- *
- * Body: { sessionId: string; message: string; attachments?: ChatAttachment[] }
- * Returns: { session, assistantMessage }
- */
 export async function POST(request: Request) {
+  const { userId, orgSlug } = await auth();
+  if (!userId || !orgSlug) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let body: {
     sessionId?: string;
     message?: string;
@@ -40,6 +39,9 @@ export async function POST(request: Request) {
   if (!session) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
   }
+  if (session.subdomain && session.subdomain !== orgSlug) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
   if (session.status === 'completed') {
     return NextResponse.json(
       { error: 'Onboarding already completed' },
@@ -48,8 +50,6 @@ export async function POST(request: Request) {
   }
 
   const now = new Date().toISOString();
-
-  // Record the user message (with any attachments) in the transcript.
   const userMessage: OnboardingMessage = {
     id: crypto.randomUUID(),
     role: 'user',
@@ -59,10 +59,8 @@ export async function POST(request: Request) {
   };
   session.messages.push(userMessage);
 
-  // Run the agent turn (mutates session: records answer, merges profile).
   const result = await runAgentTurn(session, message, attachments);
 
-  // Append the assistant reply and advance the current question.
   const assistantMessage: OnboardingMessage = {
     id: crypto.randomUUID(),
     role: 'assistant',

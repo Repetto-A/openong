@@ -9,6 +9,7 @@
  * All callers MUST verify the bearer token first (lib/onboarding/auth.ts).
  */
 
+import { finalizeOnboardingSession } from './finalize';
 import { getSession, saveSession } from './store';
 import {
   canComplete,
@@ -123,13 +124,8 @@ export async function markOnboardingComplete(params: {
     };
   }
 
-  refreshDerivedMetadata(session);
-  session.status = 'completed';
-  session.profile.metadata.onboardingStatus = 'completed';
-  session.profile.metadata.completedAt = new Date().toISOString();
-  session.currentQuestionKey = null;
   markVoiceSource(session);
-  await saveSession(session);
+  await finalizeOnboardingSession(session);
 
   if (session.subdomain) {
     await markOrgOnboarded(session.subdomain);

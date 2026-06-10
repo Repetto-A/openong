@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getVoiceAvailability } from '@/lib/onboarding/voice-config';
 
 export async function POST(_request: NextRequest) {
-  const enabled = process.env.NEXT_PUBLIC_ONBOARDING_VOICE_ENABLED === 'true';
-  const agentId = process.env.ELEVENLABS_AGENT_ID;
-  const branchId = process.env.ELEVENLABS_BRANCH_ID;
+  const voice = getVoiceAvailability();
+  const agentId = voice.agentId;
+  const branchId = voice.branchId;
   const apiKey = process.env.ELEVENLABS_API_KEY;
 
-  if (!enabled || !agentId || !apiKey) {
+  if (!voice.enabled || !agentId || !apiKey) {
     return NextResponse.json(
       {
         enabled: false,
-        reason: 'missing_configuration'
+        reason: voice.reason
       },
       { status: 200 }
     );

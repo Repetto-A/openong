@@ -18,14 +18,20 @@ export function ChatPanel({
   messages: OnboardingMessage[];
   sending?: boolean;
 }) {
-  const endRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = containerRef.current;
+    if (!container) return;
+
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: messages.length <= 1 ? 'auto' : 'smooth'
+    });
   }, [messages.length, sending]);
 
   return (
-    <div className="flex-1 space-y-4 overflow-y-auto p-4">
+    <div ref={containerRef} className="flex-1 space-y-4 overflow-y-auto p-4">
       {messages.map((m) => (
         <div
           key={m.id}
@@ -83,7 +89,6 @@ export function ChatPanel({
           </div>
         </div>
       )}
-      <div ref={endRef} />
     </div>
   );
 }

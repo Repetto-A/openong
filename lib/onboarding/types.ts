@@ -12,6 +12,14 @@ export type OnboardingSource = 'text_chat' | 'voice_agent' | 'mixed';
 export type OnboardingStatus = 'in_progress' | 'completed';
 export type ProductType = 'physical' | 'symbolic' | 'event' | 'service' | 'other';
 
+export type CampaignRecommendation = {
+  id: string;
+  type: 'crowdfunding' | 'tienda';
+  title: string;
+  reason: string;
+  promptSeed: string;
+};
+
 export type NgoOnboardingProfile = {
   organization: {
     name: string;

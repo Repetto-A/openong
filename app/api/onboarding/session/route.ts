@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { createSession } from '@/lib/onboarding/profile';
 import { saveSession } from '@/lib/onboarding/store';
 import { openingTurn } from '@/lib/onboarding/agent';
 import type { OnboardingMessage, OnboardingSource } from '@/lib/onboarding/types';
+import { sanitizeSubdomain } from '@/lib/subdomains';
 
-/**
- * POST /api/onboarding/session
- * Creates a new onboarding session and returns it with the agent's opening
- * question already seeded as the first assistant message.
- *
- * Body (optional): { subdomain?: string; source?: OnboardingSource }
- */
 export async function POST(request: Request) {
+  const { userId, orgSlug } = await auth();
+  if (!userId || !orgSlug) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let body: { subdomain?: string; source?: OnboardingSource } = {};
   try {
     body = await request.json();
@@ -19,9 +19,17 @@ export async function POST(request: Request) {
     // empty body is fine
   }
 
+  const requestedSubdomain = body.subdomain
+    ? sanitizeSubdomain(body.subdomain)
+    : undefined;
+
+  if (requestedSubdomain && requestedSubdomain !== orgSlug) {
+    return NextResponse.json({ error: 'Subdomain mismatch' }, { status: 409 });
+  }
+
   const session = createSession({
     id: crypto.randomUUID(),
-    subdomain: body.subdomain,
+    subdomain: orgSlug,
     source: body.source ?? 'text_chat'
   });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition, type ReactNode } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,7 @@ import {
   type CampaignType,
   type PaymentMethod
 } from '@/lib/campaigns';
+import type { CampaignRecommendation } from '@/lib/onboarding/types';
 
 const TYPES: {
   value: CampaignType;
@@ -42,14 +43,34 @@ const TYPES: {
   }
 ];
 
-export function CreateCampaignDialog({ subdomain }: { subdomain: string }) {
+type CreateCampaignDialogProps = {
+  subdomain: string;
+  trigger?: ReactNode;
+  initialRecommendation?: CampaignRecommendation;
+};
+
+function buildInitialState(initialRecommendation?: CampaignRecommendation) {
+  return {
+    title: initialRecommendation?.title ?? '',
+    type: initialRecommendation?.type ?? ('crowdfunding' as CampaignType),
+    prompt: initialRecommendation?.promptSeed ?? '',
+    recommendationId: initialRecommendation?.id
+  };
+}
+
+export function CreateCampaignDialog({
+  subdomain,
+  trigger,
+  initialRecommendation
+}: CreateCampaignDialogProps) {
+  const initialState = buildInitialState(initialRecommendation);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initialState.title);
   const [slug, setSlug] = useState('');
   const [slugEdited, setSlugEdited] = useState(false);
-  const [type, setType] = useState<CampaignType>('crowdfunding');
-  const [prompt, setPrompt] = useState('');
+  const [type, setType] = useState<CampaignType>(initialState.type);
+  const [prompt, setPrompt] = useState(initialState.prompt);
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [paymentMethod, setPaymentMethod] =
@@ -63,14 +84,15 @@ export function CreateCampaignDialog({ subdomain }: { subdomain: string }) {
     () => slugify(slugEdited ? slug : title),
     [slug, slugEdited, title]
   );
+  const recommendationId = initialState.recommendationId;
 
   function reset() {
     setStep(1);
-    setTitle('');
+    setTitle(initialState.title);
     setSlug('');
     setSlugEdited(false);
-    setType('crowdfunding');
-    setPrompt('');
+    setType(initialState.type);
+    setPrompt(initialState.prompt);
     setImages([]);
     setUploading(false);
     setPaymentMethod('mercadopago');
@@ -147,6 +169,7 @@ export function CreateCampaignDialog({ subdomain }: { subdomain: string }) {
         slug: previewSlug,
         prompt: prompt.trim(),
         images,
+        recommendationId,
         payment: {
           method: paymentMethod,
           link: paymentMethod === 'mercadopago' ? paymentLink.trim() : undefined,
@@ -168,10 +191,12 @@ export function CreateCampaignDialog({ subdomain }: { subdomain: string }) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Nueva campaña
-        </Button>
+        {trigger ?? (
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva campaña
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         {step === 1 ? (
@@ -194,8 +219,11 @@ export function CreateCampaignDialog({ subdomain }: { subdomain: string }) {
                       <button
                         key={t.value}
                         type="button"
-                        disabled={t.disabled}
-                        onClick={() => setType(t.value)}
+                        disabled={t.disabled || Boolean(recommendationId)}
+                        onClick={() => {
+                          if (recommendationId) return;
+                          setType(t.value);
+                        }}
                         className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
                           selected
                             ? 'border-blue-500 bg-blue-50'
@@ -224,7 +252,14 @@ export function CreateCampaignDialog({ subdomain }: { subdomain: string }) {
                   value={title}
                   placeholder="Ayudanos a financiar 100 kits escolares"
                   onChange={(e) => setTitle(e.target.value)}
+                  disabled={Boolean(recommendationId)}
                 />
+                {recommendationId && initialRecommendation && (
+                  <p className="text-xs text-gray-500">
+                    Esta sugerencia viene del onboarding y fija el enfoque base
+                    de la campaña.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -260,17 +295,30 @@ export function CreateCampaignDialog({ subdomain }: { subdomain: string }) {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-2">
-              <Label htmlFor="prompt">Prompt</Label>
-              <textarea
-                id="prompt"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={5}
-                placeholder="Creá una página emotiva de crowdfunding para recaudar $500.000 para 100 kits escolares. Incluí la historia, niveles de impacto y un llamado a donar."
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
+            {recommendationId && initialRecommendation ? (
+              <div className="space-y-2 rounded-lg border bg-blue-50/70 p-3">
+                <Label>Sugerencia tomada del onboarding</Label>
+                <p className="text-sm text-gray-700">
+                  {initialRecommendation.reason}
+                </p>
+                <p className="text-xs text-gray-500">
+                  La base de la página se genera automáticamente con el perfil
+                  de la ONG y esta sugerencia.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="prompt">Prompt</Label>
+                <textarea
+                  id="prompt"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  rows={5}
+                  placeholder="Creá una página emotiva de crowdfunding para recaudar $500.000 para 100 kits escolares. Incluí la historia, niveles de impacto y un llamado a donar."
+                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Método de pago</Label>

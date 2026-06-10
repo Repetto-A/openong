@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getSession, saveSession } from '@/lib/onboarding/store';
-import { canComplete, refreshDerivedMetadata } from '@/lib/onboarding/profile';
-import { markOrgOnboarded } from '@/lib/orgs';
+import { getOrgBySlug } from '@/lib/orgs';
+import { finalizeOnboardingSession } from '@/lib/onboarding/finalize';
+import { getSession } from '@/lib/onboarding/store';
+import { canComplete } from '@/lib/onboarding/profile';
 
-/**
- * POST /api/onboarding/complete
- * Marks the onboarding session as completed and finalizes the profile.
- *
- * Body: { sessionId: string; force?: boolean }
- * Returns 422 if the minimum blocks are not covered (unless force=true).
- */
 export async function POST(request: Request) {
+  const { userId, orgSlug } = await auth();
+  if (!userId || !orgSlug) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let body: { sessionId?: string; force?: boolean };
   try {
     body = await request.json();
@@ -27,11 +26,6 @@ export async function POST(request: Request) {
   const session = await getSession(sessionId);
   if (!session) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
-  }
-
-  const { userId, orgSlug } = await auth();
-  if (!userId || !orgSlug) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   if (session.subdomain && session.subdomain !== orgSlug) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -50,15 +44,11 @@ export async function POST(request: Request) {
     );
   }
 
-  refreshDerivedMetadata(session);
-  session.status = 'completed';
-  session.profile.metadata.onboardingStatus = 'completed';
-  session.profile.metadata.completedAt = new Date().toISOString();
-  session.currentQuestionKey = null;
+  const org = await getOrgBySlug(orgSlug);
+  const recommendations = await finalizeOnboardingSession(session, {
+    orgId: org?.id,
+    orgSlug
+  });
 
-  await saveSession(session);
-
-  await markOrgOnboarded(orgSlug);
-
-  return NextResponse.json({ session });
+  return NextResponse.json({ session, recommendations });
 }
