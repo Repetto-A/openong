@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getOrgBySlug } from '@/lib/orgs';
 import { getCampaigns } from '@/lib/campaigns';
-import { HeartHandshake, ShoppingBag, ArrowRight } from 'lucide-react';
+import { HeartHandshake, ShoppingBag, PackageCheck, ArrowRight } from 'lucide-react';
 
 export async function generateMetadata({
   params
@@ -24,7 +24,12 @@ export const dynamic = 'force-dynamic';
 
 const TYPE_META = {
   crowdfunding: { label: 'Campaña', icon: HeartHandshake, cta: 'Quiero aportar' },
-  tienda: { label: 'Tienda solidaria', icon: ShoppingBag, cta: 'Ver tienda' }
+  tienda: { label: 'Tienda solidaria', icon: ShoppingBag, cta: 'Ver tienda' },
+  object_collection: {
+    label: 'Colecta',
+    icon: PackageCheck,
+    cta: 'Quiero colaborar'
+  }
 } as const;
 
 export default async function OngPublicPage({
@@ -65,7 +70,7 @@ export default async function OngPublicPage({
           ) : (
             <div className="mt-6 flex flex-col gap-4">
               {campaigns.map((campaign) => {
-                const meta = TYPE_META[campaign.type];
+                const meta = TYPE_META[campaign.type] ?? TYPE_META.crowdfunding;
                 const Icon = meta.icon;
                 return (
                   <Link

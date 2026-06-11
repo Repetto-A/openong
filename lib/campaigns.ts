@@ -1,6 +1,6 @@
 import { redis } from '@/lib/redis';
 
-export type CampaignType = 'crowdfunding' | 'tienda';
+export type CampaignType = 'crowdfunding' | 'tienda' | 'object_collection';
 
 export type CampaignStatus = 'pending' | 'sent';
 

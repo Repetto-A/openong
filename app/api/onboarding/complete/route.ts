@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { getOrgBySlug } from '@/lib/orgs';
 import { finalizeOnboardingSession } from '@/lib/onboarding/finalize';
 import { getSession } from '@/lib/onboarding/store';
-import { canComplete } from '@/lib/onboarding/profile';
+import { computeMissingFields } from '@/lib/onboarding/profile';
 
 export async function POST(request: Request) {
   const { userId, orgSlug } = await auth();
@@ -31,15 +31,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const answeredKeys = new Set(Object.keys(session.answers));
-  if (!force && !canComplete(answeredKeys)) {
+  const missingFields = computeMissingFields(session.profile);
+  if (!force && missingFields.length > 0) {
     return NextResponse.json(
-      {
-        error: 'Minimum blocks not covered',
-        missingBlocks: ['identity', 'impact', 'fundraising', 'channels'].filter(
-          (b) => !session.completedBlocks.includes(b as never)
-        )
-      },
+      { error: 'Required fields missing', missingFields },
       { status: 422 }
     );
   }

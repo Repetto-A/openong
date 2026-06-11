@@ -127,3 +127,22 @@ The onboarding-completed flag is stored per organization in Clerk
 duplication in Redis. Redis only holds operational data keyed by organization
 id (`org:{orgId}:campaigns`, `org:{orgId}:orders`, `org:{orgId}:page:{slug}`,
 `org:{orgId}:traffic:*`).
+
+## Campaign Agent MVP
+
+```env
+# Postgres for operational Campaign Agent entities (drafts, beneficiaries,
+# collaborators, contributions, reception points, messages and tool calls).
+# DATABASE_URL is preferred; POSTGRES_URL is also accepted.
+DATABASE_URL=
+POSTGRES_URL=
+
+# Optional bearer token for voice adapters calling /api/campaign-agent/tool.
+# If unset, browser/Clerk usage still works; bearer voice calls fail closed.
+CAMPAIGN_AGENT_SERVICE_TOKEN=
+```
+
+Boundary: Redis remains used for existing onboarding sessions/profile snapshots,
+Puck page data, traffic and legacy campaign/order arrays. New operational
+Campaign Agent data belongs in Postgres/Drizzle so the tablero can query by
+status, assignment and ownership without rebuilding relational indexes in Redis.

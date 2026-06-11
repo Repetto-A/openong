@@ -20,7 +20,7 @@ type PendingAttachment = {
 type Props = {
   disabled?: boolean;
   sending?: boolean;
-  onSend: (message: string, attachments: ChatAttachment[]) => void;
+  onSend: (message: string, attachments: ChatAttachment[]) => Promise<boolean>;
   uploadFile: (file: File) => Promise<ChatAttachment>;
 };
 
@@ -75,12 +75,14 @@ export function ChatInput({ disabled, sending, onSend, uploadFile }: Props) {
     setPending((prev) => prev.filter((p) => p.localId !== localId));
   }
 
-  function submit() {
+  async function submit() {
     if (disabled || sending || uploading) return;
     if (!text.trim() && ready.length === 0) return;
-    onSend(text.trim(), ready);
-    setText('');
-    setPending([]);
+    const ok = await onSend(text.trim(), ready);
+    if (ok) {
+      setText('');
+      setPending([]);
+    }
   }
 
   return (

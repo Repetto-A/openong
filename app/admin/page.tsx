@@ -17,6 +17,7 @@ import { AdminHeader } from '@/app/admin-header';
 import {
   HeartHandshake,
   ShoppingBag,
+  PackageCheck,
   ArrowUpRight,
   ExternalLink,
   Package,
@@ -33,7 +34,8 @@ export const dynamic = 'force-dynamic';
 
 const TYPE_META = {
   crowdfunding: { label: 'Crowdfunding', icon: HeartHandshake },
-  tienda: { label: 'Tienda', icon: ShoppingBag }
+  tienda: { label: 'Tienda', icon: ShoppingBag },
+  object_collection: { label: 'Colecta', icon: PackageCheck }
 } as const;
 
 export default async function OngAdminPage() {
@@ -94,7 +96,12 @@ export default async function OngAdminPage() {
               </Link>
             </Button>
             {access.canCreateCampaign && (
-              <CreateCampaignDialog subdomain={access.slug} />
+              <Button asChild>
+                <Link href="/campaigns/agent">
+                  <PackageCheck className="mr-2 h-4 w-4" />
+                  Nueva colecta
+                </Link>
+              </Button>
             )}
           </div>
         </div>
@@ -151,7 +158,7 @@ export default async function OngAdminPage() {
                         subdomain={access.slug}
                         initialRecommendation={recommendation}
                         trigger={
-                          <Button className="w-full">Usar sugerencia</Button>
+                          <Button asChild className="w-full"><Link href="/campaigns/agent">Usar sugerencia</Link></Button>
                         }
                       />
                     </CardContent>

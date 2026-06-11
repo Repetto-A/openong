@@ -111,8 +111,8 @@ export function useOnboarding(subdomain?: string) {
   );
 
   const sendMessage = useCallback(
-    async (message: string, attachments: ChatAttachment[] = []) => {
-      if (!session) return;
+    async (message: string, attachments: ChatAttachment[] = []): Promise<boolean> => {
+      if (!session) return false;
       setSending(true);
       setSaveState('saving');
       setError(null);
@@ -144,10 +144,12 @@ export function useOnboarding(subdomain?: string) {
         if (data.recommendations) {
           setRecommendations(data.recommendations);
         }
+        return true;
       } catch (e) {
         setSaveState('error');
         setError(e instanceof Error ? e.message : 'Error al enviar');
         setSession(session);
+        return false;
       } finally {
         setSending(false);
       }

@@ -24,7 +24,7 @@ import {
 } from './questions';
 import { buildTextAgentSystemPrompt } from './prompts';
 import {
-  canComplete,
+  computeMissingFields,
   mergeProfile,
   patchFromAnswer,
   recordAnswer,
@@ -110,7 +110,7 @@ function runDeterministicTurn(
 ): AgentTurnResult {
   const answeredKeys = new Set(Object.keys(session.answers));
   const nextKey = getNextQuestionKey(answeredKeys, session.currentQuestionKey);
-  const complete = !nextKey || canComplete(answeredKeys);
+  const complete = !nextKey || computeMissingFields(session.profile).length === 0;
 
   let assistantMessage: string;
 
@@ -135,7 +135,7 @@ function runDeterministicTurn(
     profilePatch: {},
     completedBlocks: session.completedBlocks,
     missingFields: session.profile.metadata.missingFields,
-    shouldComplete: complete && answeredKeys.size >= 4
+    shouldComplete: complete
   };
 }
 
