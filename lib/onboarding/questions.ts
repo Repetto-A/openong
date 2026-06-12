@@ -281,21 +281,34 @@ export function getFirstQuestionKey(): string {
   return ONBOARDING_QUESTIONS[0].key;
 }
 
-/** Next unanswered question after the given key, in script order. */
+/**
+ * Next unanswered question.
+ *
+ * Required questions are always surfaced first (in script order) so the user
+ * covers the minimum for campaign generation before any optional questions.
+ * Once all required questions are answered, the function resumes sequential
+ * optional flow starting from afterKey.
+ */
 export function getNextQuestionKey(
   answeredKeys: Set<string>,
   afterKey?: string | null
 ): string | null {
+  // Required questions take priority — surface all before optional ones.
+  const nextRequired = ONBOARDING_QUESTIONS.find(
+    (q) => q.required && !answeredKeys.has(q.key)
+  );
+  if (nextRequired) return nextRequired.key;
+
+  // All required answered — continue with optional questions in script order.
   const startIndex = afterKey
     ? ONBOARDING_QUESTIONS.findIndex((q) => q.key === afterKey) + 1
     : 0;
-
   for (let i = Math.max(startIndex, 0); i < ONBOARDING_QUESTIONS.length; i++) {
     if (!answeredKeys.has(ONBOARDING_QUESTIONS[i].key)) {
       return ONBOARDING_QUESTIONS[i].key;
     }
   }
-  // Fall back to any earlier unanswered question.
+  // Wrap around to any earlier unanswered optional question.
   for (const q of ONBOARDING_QUESTIONS) {
     if (!answeredKeys.has(q.key)) return q.key;
   }

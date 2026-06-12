@@ -110,7 +110,15 @@ function runDeterministicTurn(
 ): AgentTurnResult {
   const answeredKeys = new Set(Object.keys(session.answers));
   const nextKey = getNextQuestionKey(answeredKeys, session.currentQuestionKey);
-  const complete = !nextKey || computeMissingFields(session.profile).length === 0;
+  const requiredMissing = computeMissingFields(session.profile).length;
+  const complete = !nextKey || requiredMissing === 0;
+
+  // True only on the exact turn that fills the last required field — fires once.
+  const justReachedMinimum =
+    !skipped &&
+    requiredMissing === 0 &&
+    nextKey !== null &&
+    Boolean(session.currentQuestionKey && QUESTION_BY_KEY[session.currentQuestionKey]?.required);
 
   let assistantMessage: string;
 
@@ -118,6 +126,12 @@ function runDeterministicTurn(
     assistantMessage =
       'Perfecto. Ya tengo una primera versión del perfil de tu organización. ' +
       'Podés revisarlo en el panel de la derecha y, cuando quieras, finalizamos para generar tu kit de recaudación.';
+  } else if (justReachedMinimum) {
+    const ack = pickAck(answeredKeys.size);
+    assistantMessage =
+      `${ack}Ya tenés lo mínimo para generar campañas. ` +
+      `Podés finalizar cuando quieras desde el panel, o seguimos afinando el perfil. ` +
+      `${QUESTION_BY_KEY[nextKey].prompt}`;
   } else {
     const ack = skipped
       ? 'Dale, lo dejamos para más adelante. '

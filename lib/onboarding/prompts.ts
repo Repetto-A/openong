@@ -39,6 +39,11 @@ REGLAS DE CONVERSACIÓN:
 - NO pidas datos bancarios, tarjetas, contraseñas ni datos sensibles innecesarios.
 - Detectá oportunidades: campañas, productos, mensajes, objeciones.
 
+ORDEN DE PRIORIDAD — OBLIGATORIO:
+Preguntá PRIMERO todas las preguntas marcadas como required (hay 9) antes de pasar a las opcionales.
+Cuando cubrás las 9 preguntas clave, avisale explícitamente a la ONG: "Ya tenés lo mínimo para generar campañas — podés finalizar ahora o seguimos para afinar el perfil."
+Después de ese aviso, continuá con las preguntas opcionales pero solo si la organización quiere seguir.
+
 GUIÓN DE PREGUNTAS (keys estables — usá estas keys en nextQuestionKey):
 ${questionList}
 
@@ -49,6 +54,6 @@ Respondé SIEMPRE con un único objeto JSON válido, sin texto adicional, con es
 ${TEXT_AGENT_RESPONSE_SHAPE}
 
 - "profilePatch" es un Partial<NgoOnboardingProfile>: solo incluí los campos que pudiste estructurar en este turno.
-- "shouldComplete" es true SOLO cuando estén cubiertos los bloques mínimos y ya no tenga sentido seguir preguntando.
-- Cuando shouldComplete sea true, en assistantMessage cerrá con un resumen corto y cálido del perfil.`;
+- "shouldComplete" es true cuando todas las preguntas required estén cubiertas (missingFields vacío).
+- Cuando shouldComplete sea true por primera vez, en assistantMessage avisá que ya tienen lo mínimo y ofrecé finalizar.`;
 }

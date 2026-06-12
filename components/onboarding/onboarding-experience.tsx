@@ -14,7 +14,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ONBOARDING_BLOCKS } from '@/lib/onboarding/questions';
+import { ONBOARDING_BLOCKS, REQUIRED_QUESTION_KEYS } from '@/lib/onboarding/questions';
 import { cn } from '@/lib/utils';
 import { useOnboarding } from './use-onboarding';
 import { ChatPanel } from './chat-panel';
@@ -27,6 +27,7 @@ import type {
 import type { VoiceAvailabilityReason } from '@/lib/onboarding/voice-config';
 
 const TOTAL_BLOCKS = ONBOARDING_BLOCKS.length;
+const TOTAL_REQUIRED = REQUIRED_QUESTION_KEYS.length;
 
 export function OnboardingExperience({
   voiceEnabled,
@@ -60,6 +61,12 @@ export function OnboardingExperience({
     () => Math.min(100, Math.round((completedBlockCount / TOTAL_BLOCKS) * 100)),
     [completedBlockCount]
   );
+  const requiredCoveredCount = useMemo(
+    () => REQUIRED_QUESTION_KEYS.filter((k) => k in (session?.answers ?? {})).length,
+    [session]
+  );
+  const minimumReached = requiredCoveredCount === TOTAL_REQUIRED;
+  const requiredProgress = Math.round((requiredCoveredCount / TOTAL_REQUIRED) * 100);
 
   if (status === 'loading' || !session) {
     return (
@@ -108,8 +115,8 @@ export function OnboardingExperience({
           <StatusBadge saveState={saveState} lastSavedAt={lastSavedAt} />
         </div>
 
-        <div className="mt-5">
-          <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+        <div className="mt-5 space-y-2">
+          <div className="flex items-center justify-between text-xs text-slate-500">
             <span>Bloques entendidos</span>
             <span>
               {completedBlockCount} / {TOTAL_BLOCKS}
@@ -119,6 +126,28 @@ export function OnboardingExperience({
             <div
               className="h-full rounded-full bg-emerald-600 transition-all duration-500"
               style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500">Preguntas clave</span>
+            <span
+              className={cn(
+                'transition-colors duration-300',
+                minimumReached
+                  ? 'font-semibold text-emerald-700'
+                  : 'text-slate-500'
+              )}
+            >
+              {minimumReached ? '✓ Mínimo cubierto' : `${requiredCoveredCount} / ${TOTAL_REQUIRED}`}
+            </span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-amber-950/10">
+            <div
+              className={cn(
+                'h-full rounded-full transition-all duration-500',
+                minimumReached ? 'bg-emerald-500' : 'bg-amber-500'
+              )}
+              style={{ width: `${requiredProgress}%` }}
             />
           </div>
         </div>
@@ -151,10 +180,21 @@ export function OnboardingExperience({
           />
 
           <div className="rounded-[24px] border border-amber-950/10 bg-[#fffaf0] p-4 shadow-sm">
+            {minimumReached && (
+              <p className="mb-3 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
+                <Check className="size-3.5 shrink-0" />
+                Ya tenés lo mínimo para generar campañas
+              </p>
+            )}
             <Button
               onClick={() => complete(false)}
               disabled={sending || saveState === 'saving'}
-              className="w-full bg-slate-950 text-white hover:bg-slate-800"
+              className={cn(
+                'w-full text-white',
+                minimumReached
+                  ? 'bg-emerald-700 hover:bg-emerald-800'
+                  : 'bg-slate-950 hover:bg-slate-800'
+              )}
             >
               <Check className="size-4" /> Finalizar y ver sugerencias
             </Button>
